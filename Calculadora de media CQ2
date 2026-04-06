@@ -1,0 +1,21 @@
+def Calculadora_de_media(datos):
+  suma = 0
+  cantidad = 0
+  dato = ""
+  for a in datos + " ":
+    if a != " ":
+      dato += a
+    else:
+      if dato != "":
+        b = int(dato)
+        suma += b
+        cantidad = cantidad + 1
+        dato = ""
+  return suma / cantidad
+
+# Entrada del usuario
+datos = input("Ingresa números separados por espacios: ")
+
+media = Calculadora_de_media(datos)
+
+print("Tu media:", media)
