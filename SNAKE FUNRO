@@ -1,0 +1,545 @@
+import tkinter as tk
+from tkinter import colorchooser
+import random
+import time
+
+# ==========================================
+# CONFIGURACIÓN
+# ==========================================
+
+ANCHO = 700
+ALTO = 700
+TAM = 20
+VELOCIDAD = 100
+
+FONDO = "#111111"
+
+# Color default (MI COLOR FAVORITO)
+COLOR_DEFAULT = "#A81818"
+
+# ==========================================
+# CLASE PRINCIPAL
+# ==========================================
+
+class SnakeGame:
+
+    def __init__(self, root):
+
+        self.root = root
+        self.root.title("Snake FUNPRO")
+
+        self.color_serpiente = COLOR_DEFAULT
+
+        self.menu_inicio()
+
+    # ==========================================
+    # MENÚ INICIAL
+    # ==========================================
+
+    def menu_inicio(self):
+
+        self.limpiar_ventana()
+
+        self.frame_menu = tk.Frame(self.root, bg=FONDO)
+        self.frame_menu.pack(fill="both", expand=True)
+
+        titulo = tk.Label(
+            self.frame_menu,
+            text="Snake FUNPRO",
+            font=("Arial", 42, "bold"),
+            fg="white",
+            bg=FONDO
+        )
+        titulo.pack(pady=40)
+
+        self.preview = tk.Label(
+            self.frame_menu,
+            text="Color de la serpiente",
+            bg=self.color_serpiente,
+            fg="white",
+            width=30,
+            height=2
+        )
+        self.preview.pack(pady=20)
+
+        boton_color = tk.Button(
+            self.frame_menu,
+            text="Cambiar color",
+            font=("Arial", 14),
+            command=self.elegir_color
+        )
+        boton_color.pack(pady=10)
+
+        boton_jugar = tk.Button(
+            self.frame_menu,
+            text="JUGAR",
+            font=("Arial", 20, "bold"),
+            bg="green",
+            fg="white",
+            width=15,
+            command=self.iniciar_juego
+        )
+        boton_jugar.pack(pady=30)
+
+        instrucciones = tk.Label(
+            self.frame_menu,
+            text=(
+                "OBJETOS:\n\n"
+                "🔴 Roja = +1 punto: CRECE\n"
+                "🟡 Amarilla = +2 puntos: crea obstáculos temporales\n"
+                "🔵 Azul = +3 puntos: aumenta permanentemente la velocidad"
+            ),
+            font=("Arial", 14),
+            fg="white",
+            bg=FONDO,
+            justify="left"
+        )
+        instrucciones.pack(pady=20)
+
+    # ==========================================
+    # ELEGIR COLOR
+    # ==========================================
+
+    def elegir_color(self):
+
+        color = colorchooser.askcolor()[1]
+
+        if color:
+            self.color_serpiente = color
+            self.preview.config(bg=color)
+
+    # ==========================================
+    # INICIAR JUEGO
+    # ==========================================
+
+    def iniciar_juego(self):
+
+        self.limpiar_ventana()
+
+        self.canvas = tk.Canvas(
+            self.root,
+            width=ANCHO,
+            height=ALTO,
+            bg=FONDO,
+            highlightthickness=0
+        )
+
+        self.canvas.pack()
+
+        self.direccion = "Right"
+
+        self.puntos = 0
+
+        self.game_over = False
+
+        self.velocidad_actual = VELOCIDAD
+
+        self.serpiente = [
+            (100, 100),
+            (80, 100),
+            (60, 100)
+        ]
+
+        self.obstaculos = []
+
+        self.crear_comidas()
+
+        self.root.bind("<Key>", self.cambiar_direccion)
+
+        self.actualizar()
+
+    # ==========================================
+    # CREAR COMIDA
+    # ==========================================
+
+    def crear_comidas(self):
+
+        tipos = ["crecer", "obstaculo", "velocidad"]
+
+        self.tipo_comida = random.choice(tipos)
+
+        self.comida_actual = self.posicion_libre()
+
+    # ==========================================
+    # POSICIÓN LIBRE
+    # ==========================================
+
+    def posicion_libre(self):
+
+        while True:
+
+            x = random.randint(0, (ANCHO // TAM) - 1) * TAM
+            y = random.randint(0, (ALTO // TAM) - 1) * TAM
+
+            pos = (x, y)
+
+            if (
+                pos not in self.serpiente and
+                pos not in [o[0] for o in self.obstaculos]
+            ):
+                return pos
+
+    # ==========================================
+    # CAMBIAR DIRECCIÓN
+    # ==========================================
+
+    def cambiar_direccion(self, event):
+
+        nueva = event.keysym
+
+        opuestas = {
+            "Up": "Down",
+            "Down": "Up",
+            "Left": "Right",
+            "Right": "Left"
+        }
+
+        if nueva in opuestas:
+
+            if opuestas[nueva] != self.direccion:
+                self.direccion = nueva
+
+    # ==========================================
+    # MOVER SERPIENTE
+    # ==========================================
+
+    def mover(self):
+
+        cabeza_x, cabeza_y = self.serpiente[0]
+
+        # ======================================
+        # NUEVA POSICIÓN
+        # ======================================
+
+        if self.direccion == "Up":
+            cabeza_y -= TAM
+
+        elif self.direccion == "Down":
+            cabeza_y += TAM
+
+        elif self.direccion == "Left":
+            cabeza_x -= TAM
+
+        elif self.direccion == "Right":
+            cabeza_x += TAM
+
+        nueva_cabeza = (cabeza_x, cabeza_y)
+
+        # ======================================
+        # ¿VA A CRECER?
+        # ======================================
+
+        crecer = (
+            nueva_cabeza == self.comida_actual and
+            self.tipo_comida == "crecer"
+        )
+
+        # ======================================
+        # SI NO CRECE:
+        # quitar cola antes de colisión
+        # ======================================
+
+        if not crecer:
+            self.serpiente.pop()
+
+        # ======================================
+        # COLISIÓN CON BORDES
+        # ======================================
+
+        if (
+            cabeza_x < 0 or
+            cabeza_x >= ANCHO or
+            cabeza_y < 0 or
+            cabeza_y >= ALTO
+        ):
+            self.game_over = True
+            return
+
+        # ======================================
+        # COLISIÓN CON EL CUERPO
+        # ======================================
+
+        if nueva_cabeza in self.serpiente:
+            self.game_over = True
+            return
+
+        # ======================================
+        # COLISIÓN CON OBSTÁCULOS
+        # ======================================
+
+        if nueva_cabeza in [o[0] for o in self.obstaculos]:
+            self.game_over = True
+            return
+
+        # ======================================
+        # AGREGAR NUEVA CABEZA
+        # ======================================
+
+        self.serpiente.insert(0, nueva_cabeza)
+
+        # ======================================
+        # COMIDA
+        # ======================================
+
+        if nueva_cabeza == self.comida_actual:
+
+            # ----------------------------------
+            # ROJA -> CRECER
+            # ----------------------------------
+
+            if self.tipo_comida == "crecer":
+
+                self.puntos += 1
+
+            # ----------------------------------
+            # AMARILLA -> OBSTÁCULOS
+            # ----------------------------------
+
+            elif self.tipo_comida == "obstaculo":
+
+                self.puntos += 2
+
+                self.crear_obstaculos_seguro()
+
+            # ----------------------------------
+            # AZUL -> VELOCIDAD
+            # ----------------------------------
+
+            elif self.tipo_comida == "velocidad":
+
+                self.puntos += 3
+
+                self.velocidad_actual = max(
+                    40,
+                    self.velocidad_actual - 5
+                )
+
+            self.crear_comidas()
+
+    # ==========================================
+    # CREAR OBSTÁCULOS
+    # ==========================================
+
+    def crear_obstaculos_seguro(self):
+
+        tiempo_actual = time.time()
+
+        cabeza_x, cabeza_y = self.serpiente[0]
+
+        posiciones_prohibidas = []
+
+        # Evita generar obstáculos delante
+        if self.direccion == "Up":
+            posiciones_prohibidas.append((cabeza_x, cabeza_y - TAM))
+
+        elif self.direccion == "Down":
+            posiciones_prohibidas.append((cabeza_x, cabeza_y + TAM))
+
+        elif self.direccion == "Left":
+            posiciones_prohibidas.append((cabeza_x - TAM, cabeza_y))
+
+        elif self.direccion == "Right":
+            posiciones_prohibidas.append((cabeza_x + TAM, cabeza_y))
+
+        for _ in range(5):
+
+            while True:
+
+                pos = self.posicion_libre()
+
+                if pos not in posiciones_prohibidas:
+
+                    self.obstaculos.append(
+                        (pos, tiempo_actual)
+                    )
+
+                    break
+
+    # ==========================================
+    # ACTUALIZAR OBSTÁCULOS
+    # ==========================================
+
+    def actualizar_obstaculos(self):
+
+        tiempo_actual = time.time()
+
+        nuevos = []
+
+        for obstaculo in self.obstaculos:
+
+            pos, tiempo_creacion = obstaculo
+
+            if tiempo_actual - tiempo_creacion < 15:
+                nuevos.append(obstaculo)
+
+        self.obstaculos = nuevos
+
+    # ==========================================
+    # DIBUJAR
+    # ==========================================
+
+    def dibujar(self):
+
+        self.canvas.delete("all")
+
+        # ======================================
+        # SERPIENTE
+        # ======================================
+
+        for x, y in self.serpiente:
+
+            self.canvas.create_rectangle(
+                x,
+                y,
+                x + TAM,
+                y + TAM,
+                fill=self.color_serpiente,
+                outline="black"
+            )
+
+        # ======================================
+        # COMIDA
+        # ======================================
+
+        x, y = self.comida_actual
+
+        if self.tipo_comida == "crecer":
+            color = "red"
+
+        elif self.tipo_comida == "obstaculo":
+            color = "yellow"
+
+        else:
+            color = "cyan"
+
+        self.canvas.create_oval(
+            x,
+            y,
+            x + TAM,
+            y + TAM,
+            fill=color
+        )
+
+        # ======================================
+        # OBSTÁCULOS
+        # ======================================
+
+        for obstaculo in self.obstaculos:
+
+            (x, y), _ = obstaculo
+
+            self.canvas.create_rectangle(
+                x,
+                y,
+                x + TAM,
+                y + TAM,
+                fill="gray"
+            )
+
+        # ======================================
+        # HUD
+        # ======================================
+
+        self.canvas.create_text(
+            170,
+            20,
+            text=f"Puntos: {self.puntos}",
+            fill="white",
+            font=("Arial", 16, "bold")
+        )
+
+        self.canvas.create_text(
+            540,
+            20,
+            text=f"Velocidad: {100 - self.velocidad_actual}",
+            fill="cyan",
+            font=("Arial", 16, "bold")
+        )
+
+        # ======================================
+        # GAME OVER
+        # ======================================
+
+        if self.game_over:
+
+            self.canvas.create_text(
+                ANCHO // 2,
+                ALTO // 2 - 20,
+                text="JAJAJ PERDISTE",
+                fill="red",
+                font=("Arial", 40, "bold")
+            )
+
+            self.canvas.create_text(
+                ANCHO // 2,
+                ALTO // 2 + 35,
+                text="Presiona F para volver al menú",
+                fill="white",
+                font=("Arial", 18)
+            )
+
+            self.canvas.create_text(
+                ANCHO // 2,
+                ALTO // 2 + 80,
+                text=(
+                    "Funfact: El color favorito de Julian "
+                    "es el color default de la serpiente, "
+                    "y su codigo de color es A81818"
+                ),
+                fill="#A81818",
+                font=("Arial", 11, "italic")
+            )
+
+            self.root.bind("f", self.volver_menu)
+
+    # ==========================================
+    # VOLVER AL MENÚ
+    # ==========================================
+
+    def volver_menu(self, event):
+
+        self.root.unbind("f")
+
+        self.menu_inicio()
+
+    # ==========================================
+    # LOOP PRINCIPAL
+    # ==========================================
+
+    def actualizar(self):
+
+        if not self.game_over:
+
+            self.actualizar_obstaculos()
+
+            self.mover()
+
+            self.dibujar()
+
+            self.root.after(
+                self.velocidad_actual,
+                self.actualizar
+            )
+
+        else:
+            self.dibujar()
+
+    # ==========================================
+    # LIMPIAR VENTANA
+    # ==========================================
+
+    def limpiar_ventana(self):
+
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+
+# ==========================================
+# EJECUTAR JUEGO
+# ==========================================
+
+root = tk.Tk()
+
+juego = SnakeGame(root)
+
+root.mainloop()
